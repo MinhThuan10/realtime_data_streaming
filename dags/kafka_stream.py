@@ -5,7 +5,7 @@ from airflow.operators.python import PythonOperator
 
 default_args = {
     'owner': 'minhthuan',
-    'start_date': datetime(2024, 10, 20, 20, 00)
+    'start_date': datetime(2024, 11, 10, 10, 00)
 }
 
 def get_data():
@@ -50,24 +50,24 @@ def stream_data():
     import time
     import logging
     
-    res = get_data()
-    res = format_data(res)
+    logging.info("Starting stream_data function.")
 
-    producer  = KafkaProducer(bootstrap_servers=['broker:29092'], max_block_ms=5000)
+    producer = KafkaProducer(bootstrap_servers=['broker:29092'], max_block_ms=5000)
     curr_time = time.time()
-    
-    while True:
-        if time.time() > curr_time + 60:
-            logging.info("Finished streaming data after 60 seconds.")
-            break
+    timeout = 60  # Timeout after 60 seconds
+
+    while time.time() - curr_time < timeout:
         try:
             res = get_data()
             res = format_data(res)
             logging.info(f"Sending data to Kafka: {res}")
             producer.send('user_created', json.dumps(res).encode('utf-8'))
+            time.sleep(5)  # To control the flow and avoid overloading Kafka
         except Exception as e:
-            logging.error(f"An error occured: {e}")
-            continue
+            logging.error(f"An error occurred: {e}")
+            time.sleep(5)  # Wait before retrying on error
+    logging.info("Finished streaming data.")
+
 
 
 with DAG('user_automation',
